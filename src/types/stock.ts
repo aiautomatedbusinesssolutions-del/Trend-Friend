@@ -11,11 +11,14 @@ export interface SMAPoint {
   value: number;
 }
 
+export type DataSource = "cache" | "yahoo" | "mock";
+
 export interface StockData {
   symbol: string;
   candles: CandleData[];
   sma50: SMAPoint[];
   sma200: SMAPoint[];
+  source: DataSource;
 }
 
 export type TrendSignal = "green" | "yellow" | "red";

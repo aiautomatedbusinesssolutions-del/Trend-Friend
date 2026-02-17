@@ -7,7 +7,7 @@ import { useStockData } from "@/hooks/useStockData";
 import { getTrafficLight } from "@/lib/utils/traffic-light";
 
 export default function Home() {
-  const { data, loading, error, fetchStock } = useStockData();
+  const { data, loading, error, fetchStock, reset } = useStockData();
 
   const trafficLight = data
     ? getTrafficLight(
@@ -21,17 +21,36 @@ export default function Home() {
     <main className="min-h-screen px-4 py-8 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-5xl space-y-8">
         {/* Header */}
-        <header className="space-y-1">
-          <h1 className="text-3xl font-bold tracking-tight text-slate-100">
-            Trend Friend
-          </h1>
-          <p className="text-sm text-slate-400">
-            Moving Average Trend Indicator
-          </p>
+        <header className="flex items-start justify-between">
+          <div className="space-y-1">
+            <h1 className="text-3xl font-bold tracking-tight text-slate-100">
+              Trend Friend
+            </h1>
+            <p className="text-sm text-slate-400">
+              Moving Average Trend Indicator
+            </p>
+          </div>
+          {(loading || error || data) && (
+            <button
+              onClick={reset}
+              className="rounded-lg border border-slate-700 px-3 py-1.5 text-xs text-slate-400 hover:border-slate-500 hover:text-slate-200 transition-colors"
+            >
+              Reset
+            </button>
+          )}
         </header>
 
         {/* Search */}
         <SearchBar onSearch={fetchStock} loading={loading} />
+
+        {/* Demo data banner */}
+        {data?.source === "mock" && (
+          <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-3">
+            <p className="text-sm text-amber-400">
+              &#9888;&#65039; API Limit Reached &mdash; Showing Demo Data
+            </p>
+          </div>
+        )}
 
         {/* Error */}
         {error && (

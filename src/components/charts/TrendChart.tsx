@@ -87,7 +87,17 @@ export function TrendChart({ data }: TrendChartProps) {
       sma200Series.setData(data.sma200);
     }
 
-    chart.timeScale().fitContent();
+    // Set visible range to last 2 years so the chart isn't too crowded,
+    // while all data is still loaded for SMA calculation accuracy.
+    const twoYearsAgo = new Date();
+    twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2);
+    const fromDate = twoYearsAgo.toISOString().split("T")[0];
+    const toDate = data.candles[data.candles.length - 1].time;
+
+    chart.timeScale().setVisibleRange({
+      from: fromDate,
+      to: toDate,
+    });
 
     // Responsive resize
     const handleResize = () => {

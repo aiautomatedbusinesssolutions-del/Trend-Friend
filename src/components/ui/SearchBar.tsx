@@ -26,11 +26,10 @@ export function SearchBar({ onSearch, loading }: SearchBarProps) {
         onChange={(e) => setInput(e.target.value.toUpperCase())}
         placeholder="Enter a ticker (e.g. AAPL)"
         className="flex-1 rounded-lg border border-slate-700 bg-slate-800 px-4 py-3 text-sm text-slate-100 placeholder:text-slate-500 outline-none focus:border-slate-500 focus:ring-1 focus:ring-slate-500 transition-colors"
-        disabled={loading}
       />
       <button
         type="submit"
-        disabled={loading || !input.trim()}
+        disabled={!input.trim()}
         className="rounded-lg bg-slate-700 px-5 py-3 text-sm font-medium text-slate-100 hover:bg-slate-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
       >
         {loading ? "Loading..." : "Search"}
