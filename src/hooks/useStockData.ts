@@ -7,7 +7,7 @@ import { MOCK_CANDLES } from "@/lib/utils/mock-data";
 
 const CACHE_PREFIX = "tf_stock_";
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
-const FETCH_TIMEOUT_MS = 5000; // 5 second timeout → auto-fallback to mock
+const FETCH_TIMEOUT_MS = 15000; // 15 second timeout → auto-fallback to mock
 
 interface CachedPayload {
   symbol: string;
@@ -128,9 +128,10 @@ export function useStockData(): UseStockDataReturn {
         console.log(`[Trend Friend] API unavailable — loading demo data`);
         setData(loadMock());
       } else {
+        const source: DataSource = json.source === "tiingo" ? "tiingo" : "yahoo";
         setCache(symbol, json.candles);
-        console.log(`[Trend Friend] Fetched & cached ${symbol.toUpperCase()} via Yahoo (${json.candles.length} candles)`);
-        setData(buildStockData(symbol.toUpperCase(), json.candles, "yahoo"));
+        console.log(`[Trend Friend] Fetched & cached ${symbol.toUpperCase()} via ${source} (${json.candles.length} candles)`);
+        setData(buildStockData(symbol.toUpperCase(), json.candles, source));
       }
     } catch (err) {
       // Timeout or network failure → fall back to mock data instead of showing error

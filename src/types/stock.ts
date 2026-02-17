@@ -11,7 +11,7 @@ export interface SMAPoint {
   value: number;
 }
 
-export type DataSource = "cache" | "yahoo" | "mock";
+export type DataSource = "cache" | "tiingo" | "yahoo" | "mock";
 
 export interface StockData {
   symbol: string;

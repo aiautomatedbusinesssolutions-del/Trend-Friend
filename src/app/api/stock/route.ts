@@ -3,52 +3,52 @@ import YahooFinance from "yahoo-finance2";
 
 const yahooFinance = new YahooFinance();
 
-// ─── Alpha Vantage (Production) ─────────────────────────────────────────
-// Uncomment this block and comment out Yahoo below to switch to Alpha Vantage.
-//
-// const ALPHA_VANTAGE_BASE = "https://www.alphavantage.co/query";
-//
-// interface AlphaVantageDaily {
-//   "1. open": string;
-//   "2. high": string;
-//   "3. low": string;
-//   "4. close": string;
-//   "5. volume": string;
-// }
-//
-// interface AlphaVantageResponse {
-//   "Meta Data"?: { "2. Symbol": string };
-//   "Time Series (Daily)"?: Record<string, AlphaVantageDaily>;
-//   Note?: string;
-//   Information?: string;
-//   "Error Message"?: string;
-// }
-//
-// async function fetchFromAlphaVantage(symbol: string) {
-//   const apiKey = process.env.ALPHA_VANTAGE_API_KEY;
-//   if (!apiKey) throw new Error("ALPHA_VANTAGE_API_KEY not set");
-//
-//   const url = `${ALPHA_VANTAGE_BASE}?function=TIME_SERIES_DAILY&symbol=${encodeURIComponent(symbol)}&outputsize=full&apikey=${apiKey}`;
-//   const res = await fetch(url);
-//   const json: AlphaVantageResponse = await res.json();
-//
-//   if (json["Error Message"]) throw new Error("Invalid symbol");
-//   if (json.Note || json.Information) throw new Error("Rate limited");
-//
-//   const timeSeries = json["Time Series (Daily)"];
-//   if (!timeSeries) throw new Error("No data");
-//
-//   return Object.entries(timeSeries)
-//     .map(([date, v]) => ({
-//       time: date,
-//       open: parseFloat(v["1. open"]),
-//       high: parseFloat(v["2. high"]),
-//       low: parseFloat(v["3. low"]),
-//       close: parseFloat(v["4. close"]),
-//     }))
-//     .sort((a, b) => a.time.localeCompare(b.time));
-// }
-// ─────────────────────────────────────────────────────────────────────────
+// ─── Tiingo (Primary) ───────────────────────────────────────────────────
+
+interface TiingoEOD {
+  date: string;
+  close: number;
+  high: number;
+  low: number;
+  open: number;
+  adjClose: number;
+  adjHigh: number;
+  adjLow: number;
+  adjOpen: number;
+}
+
+async function fetchFromTiingo(symbol: string) {
+  const token = process.env.TIINGO_API_TOKEN;
+  if (!token) throw new Error("TIINGO_API_TOKEN not set");
+
+  const url = `https://api.tiingo.com/tiingo/daily/${encodeURIComponent(symbol)}/prices?token=${token}&startDate=1990-01-01`;
+
+  const res = await fetch(url, {
+    headers: { "Content-Type": "application/json" },
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Tiingo ${res.status}: ${text}`);
+  }
+
+  const data: TiingoEOD[] = await res.json();
+
+  if (!Array.isArray(data) || data.length === 0) {
+    throw new Error("No data from Tiingo");
+  }
+
+  // Use adjusted prices to account for splits/dividends
+  return data.map((d) => ({
+    time: d.date.split("T")[0],
+    open: d.adjOpen,
+    high: d.adjHigh,
+    low: d.adjLow,
+    close: d.adjClose,
+  }));
+}
+
+// ─── Yahoo Finance (Fallback) ───────────────────────────────────────────
 
 async function fetchFromYahoo(symbol: string) {
   const endDate = new Date();
@@ -78,6 +78,31 @@ async function fetchFromYahoo(symbol: string) {
     }));
 }
 
+// ─── Alpha Vantage (Reserved for future production use) ─────────────────
+// To switch: uncomment fetchFromAlphaVantage, add as a priority in GET.
+//
+// async function fetchFromAlphaVantage(symbol: string) {
+//   const apiKey = process.env.ALPHA_VANTAGE_API_KEY;
+//   if (!apiKey) throw new Error("ALPHA_VANTAGE_API_KEY not set");
+//   const url = `https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=${encodeURIComponent(symbol)}&outputsize=full&apikey=${apiKey}`;
+//   const res = await fetch(url);
+//   const json = await res.json();
+//   if (json["Error Message"]) throw new Error("Invalid symbol");
+//   if (json.Note || json.Information) throw new Error("Rate limited");
+//   const ts = json["Time Series (Daily)"];
+//   if (!ts) throw new Error("No data");
+//   return Object.entries(ts)
+//     .map(([date, v]: [string, any]) => ({
+//       time: date,
+//       open: parseFloat(v["1. open"]),
+//       high: parseFloat(v["2. high"]),
+//       low: parseFloat(v["3. low"]),
+//       close: parseFloat(v["4. close"]),
+//     }))
+//     .sort((a, b) => a.time.localeCompare(b.time));
+// }
+// ─────────────────────────────────────────────────────────────────────────
+
 export async function GET(request: NextRequest) {
   const symbol = request.nextUrl.searchParams.get("symbol");
 
@@ -87,13 +112,29 @@ export async function GET(request: NextRequest) {
 
   const ticker = symbol.toUpperCase();
 
-  // Priority 2: Yahoo Finance (development/streaming mode)
+  // Priority 1: Tiingo (30+ years of adjusted EOD data)
+  try {
+    const candles = await fetchFromTiingo(ticker);
+    console.log(`[API] Tiingo returned ${candles.length} candles for ${ticker}`);
+
+    return NextResponse.json({
+      symbol: ticker,
+      candles,
+      source: "tiingo",
+    });
+  } catch (err) {
+    console.error("Tiingo error:", err);
+  }
+
+  // Priority 2: Yahoo Finance fallback
   try {
     const candles = await fetchFromYahoo(ticker);
 
     if (candles.length === 0) {
       throw new Error("No candle data returned");
     }
+
+    console.log(`[API] Yahoo returned ${candles.length} candles for ${ticker}`);
 
     return NextResponse.json({
       symbol: ticker,
@@ -104,7 +145,7 @@ export async function GET(request: NextRequest) {
     console.error("Yahoo Finance error:", err);
   }
 
-  // Priority 3: Mock data fallback
+  // Priority 3: Signal client to use mock data
   return NextResponse.json({
     symbol: ticker,
     candles: null,
