@@ -1,10 +1,13 @@
 "use client";
 
+import { useMemo } from "react";
 import { SearchBar } from "@/components/ui/SearchBar";
 import { TrendChart } from "@/components/charts/TrendChart";
 import { TrafficLight } from "@/components/ui/TrafficLight";
+import { BacktestCard } from "@/components/ui/BacktestCard";
 import { useStockData } from "@/hooks/useStockData";
 import { getTrafficLight } from "@/lib/utils/traffic-light";
+import { runBacktest } from "@/lib/utils/backtester";
 
 export default function Home() {
   const { data, loading, error, fetchStock, reset } = useStockData();
@@ -16,6 +19,11 @@ export default function Home() {
         data.sma200
       )
     : null;
+
+  const backtestResult = useMemo(
+    () => (data ? runBacktest(data) : null),
+    [data]
+  );
 
   return (
     <main className="min-h-screen px-4 py-8 sm:px-6 lg:px-8">
@@ -76,6 +84,14 @@ export default function Home() {
 
             {/* Chart */}
             <TrendChart data={data} />
+
+            {/* Backtest */}
+            {backtestResult && (
+              <BacktestCard
+                result={backtestResult}
+                isDemo={data.source === "mock"}
+              />
+            )}
 
             {/* Explainer card */}
             <div className="rounded-xl border border-slate-800 bg-slate-900 p-5">
